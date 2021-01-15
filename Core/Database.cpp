@@ -1,39 +1,22 @@
 #include "Database.h"
-#include <cctype>
-
-Database d;
 
 string Database::dbName = "Database";
+bool Database::isNameSet = false;
 
-inline void ltrim(std::string &s) {
-	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-		return !std::isspace(ch);
-	}));
-}
-
-string toLowerCase(string s)
+void Database::setName(string name)
 {
-	for (size_t i = 0; i < s.size(); ++i)
+	if (!isNameSet)
 	{
-		s.at(i) = tolower(s.at(i));
+		isNameSet = true;
+		dbName = name;
 	}
-	return s;
+	else
+	{
+		cout << "Baza de date a fost deja denumita " << dbName << "!" << endl;
+	}
 }
 
-bool is_number(const std::string& s)
-{
-	std::string::const_iterator it = s.begin();
-	while (it != s.end() && std::isdigit(*it)) ++it;
-	return !s.empty() && it == s.end();
-}
-
-bool areNumbersEqual(double n, double n2, size_t precision)
-{
-	double factor = pow(10, precision);
-	return (int)(n * factor) == (int)(n2 * factor);
-}
-
-void IntrerpretareComanda(string comanda)
+void Database::IntrerpretareComanda(string comanda)
 {
 	string tableName;
 
@@ -41,6 +24,7 @@ void IntrerpretareComanda(string comanda)
 	size_t pos = comanda.find(delimiter);
 	if (pos == std::string::npos)
 	{
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda invalida: " + comanda);
 		throw Exception("Comanda invalida!");
 	}
 
@@ -73,36 +57,47 @@ void IntrerpretareComanda(string comanda)
 				}
 				default: break;
 			}
+
 			string temp = comanda;
-			token = toLowerCase(token);
-			if (!temp.substr(0, 7).compare("values("))break;
+
+			if (!toLowerCase(temp.substr(0, 6)).compare("values"))break;
 			++i;
 
 		}
 
-		if (!d.getAtByName(tableName))
+		if (!Database::get().getAtByName(tableName))
 		{
 			string tmp = "Nu exista tabelul " + tableName + " !";
 			throw Exception(tmp.c_str());
 		}
 
-		if (i != 1)
+		if (i != 1 && i != 6)
 		{
 			throw Exception("Eroare in sintaxa comenzii INSERT!");
 		}
 
 		token = comanda;
-		token = toLowerCase(token);
-		if (token.substr(0, 7).compare("values("))
+
+		if (toLowerCase(token).substr(0, 6).compare("values"))
 		{
 			throw Exception("Eroare in sintaxa comenzii INSERT! -> values");
 		}
+
+		token = token.substr(6, token.size());
+		ltrim(token);
+
+		if (token.at(0) != '(')
+		{
+			throw Exception("Eroare in sintaxa comenzii INSERT! -> paranteza");
+		}
+
 		if (token.at(token.length() - 1) != ')')
 		{
 			throw Exception("Eroare in sintaxa comenzii INSERT! -> paranteza");
 		}
 
-		token = token.substr(7, token.length() - 1);
+		token = token.substr(1, token.length() - 1);
+		ltrim(token);
 		token = token.substr(0, token.length() - 1);
 
 		if (token.length() == 0)
@@ -125,7 +120,8 @@ void IntrerpretareComanda(string comanda)
 			token.erase(0, pos + delimiter2.length() + 1);
 		}
 		values.push_back(token);
-		d.getAtByName(tableName)->addRecord(values);
+		Database::get().getAtByName(tableName)->addRecord(values);
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda insert a fost executata: " + comanda);
 	}
 	else if (!token.compare("update"))
 	{
@@ -139,7 +135,7 @@ void IntrerpretareComanda(string comanda)
 				case 0:
 				{
 					tableName = token;
-					if (!d.getAtByName(tableName))
+					if (!Database::get().getAtByName(tableName))
 					{
 						string tmp = "Nu exista tabelul " + tableName + " !";
 						throw Exception(tmp.c_str());
@@ -158,7 +154,7 @@ void IntrerpretareComanda(string comanda)
 				}
 				case 2:
 				{
-					if (!d.getAtByName(tableName)->checkForCelula(token))
+					if (!Database::get().getAtByName(tableName)->checkForCelula(token))
 					{
 						string tmp = "Eroare in sintaxa comenzii UPDATE! -> nu exista celula " + token;
 						throw Exception(tmp.c_str());
@@ -193,7 +189,7 @@ void IntrerpretareComanda(string comanda)
 				}
 				case 6:
 				{
-					if (!d.getAtByName(tableName)->checkForCelula(token))
+					if (!Database::get().getAtByName(tableName)->checkForCelula(token))
 					{
 						string tmp = "Eroare in sintaxa comenzii UPDATE! -> nu exista celula " + token;
 						throw Exception(tmp.c_str());
@@ -223,8 +219,8 @@ void IntrerpretareComanda(string comanda)
 
 		val2 = comanda;
 
-		d.getAtByName(tableName)->setInregistrareByCondition(celula, val, celula2, val2);
-		auto x = d.getAtByName(tableName)->getCelule();
+		Database::get().getAtByName(tableName)->setInregistrareByCondition(celula, val, celula2, val2);
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda update a fost executata: " + comanda);
 	}
 	else if (!token.compare("delete"))
 	{
@@ -248,7 +244,7 @@ void IntrerpretareComanda(string comanda)
 				case 1:
 				{
 					tableName = token;
-					if (!d.getAtByName(tableName))
+					if (!Database::get().getAtByName(tableName))
 					{
 						string tmp = "Nu exista tabelul " + tableName + " !";
 						throw Exception(tmp.c_str());
@@ -267,7 +263,7 @@ void IntrerpretareComanda(string comanda)
 				}
 				case 3:
 				{
-					if (!d.getAtByName(tableName)->checkForCelula(token))
+					if (!Database::get().getAtByName(tableName)->checkForCelula(token))
 					{
 						string tmp = "Eroare in sintaxa comenzii DELETE! -> nu exista celula " + token;
 						throw Exception(tmp.c_str());
@@ -299,7 +295,8 @@ void IntrerpretareComanda(string comanda)
 
 		val = comanda;
 
-		d.getAtByName(tableName)->deleteRecords(celula, val);
+		Database::get().getAtByName(tableName)->deleteRecords(celula, val);
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda delete a fost executata: " + comanda);
 	}
 	else if (!token.compare("display"))
 	{
@@ -332,14 +329,15 @@ void IntrerpretareComanda(string comanda)
 			}
 		}
 
-		if (!d.getAtByName(tableName))
+		if (!Database::get().getAtByName(tableName))
 		{
 			string tmp = "Nu exista tabelul " + tableName + " !";
 			throw Exception(tmp.c_str());
 		}
 
 		vector<string> filters;
-		d.getAtByName(tableName)->printRecords(filters);
+		Database::get().getAtByName(tableName)->printRecords(filters);
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda display a fost executata: " + comanda);
 	}
 	else if (!token.compare("drop"))
 	{
@@ -372,13 +370,14 @@ void IntrerpretareComanda(string comanda)
 			}
 		}
 
-		if (!d.getAtByName(tableName))
+		if (!Database::get().getAtByName(tableName))
 		{
 			string tmp = "Nu exista tabelul " + tableName + " !";
 			throw Exception(tmp.c_str());
 		}
 
-		d.deleteAtByName(tableName);
+		Database::get().deleteAtByName(tableName);
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda drop a fost executata: " + comanda);
 	}
 	else if (!token.compare("select"))
 	{
@@ -415,7 +414,20 @@ void IntrerpretareComanda(string comanda)
 								values.push_back(token2);
 								comanda.erase(0, pos2 + delimiter2.length() + 1);
 							}
-							values.push_back(comanda.substr(0, comanda.find(" ")));
+
+							string next = comanda.substr(0, comanda.find(" "));
+							next = toLowerCase(next);
+
+							if (next.compare("from"))
+							{
+								values.push_back(next);
+								comanda = comanda.substr(comanda.find(" ") + 1, comanda.size());
+								ltrim(comanda);
+							}
+							else
+							{
+								throw Exception("Eroare in sintaxa comenzii SELECT! -> from");
+							}
 						}
 						else
 						{
@@ -429,6 +441,7 @@ void IntrerpretareComanda(string comanda)
 							{
 								values.push_back(next);
 								comanda = comanda.substr(comanda.find(" ") + 1, comanda.size());
+								ltrim(comanda);
 							}
 						}
 					}
@@ -509,7 +522,7 @@ void IntrerpretareComanda(string comanda)
 
 		}
 
-		if (!d.getAtByName(tableName))
+		if (!Database::get().getAtByName(tableName))
 		{
 			string tmp = "Nu exista tabelul " + tableName + " !";
 			throw Exception(tmp.c_str());
@@ -524,19 +537,18 @@ void IntrerpretareComanda(string comanda)
 		{
 			if (!whereToken)
 			{
-				//vector<string> filters;
-				d.getAtByName(tableName)->printRecords(values);
+				Database::get().getAtByName(tableName)->printRecords(values);
 			}
 			else
 			{
-				if (!d.getAtByName(tableName)->getCelulaByName(celula))
+				if (!Database::get().getAtByName(tableName)->getCelulaByName(celula))
 				{
 					string tmp = "Eroare in sintaxa comenzii SELECT! -> nu exista celula " + celula;
 					throw Exception(tmp.c_str());
 				}
 
 				bool number = false;
-				TipCelula tipCelulaCautata = d.getAtByName(tableName)->getTipCelulaByName(celula);
+				TipCelula tipCelulaCautata = Database::get().getAtByName(tableName)->getTipCelulaByName(celula);
 				if (tipCelulaCautata == TipCelula::NUMBER)
 				{
 					if (!is_number(val))
@@ -546,7 +558,7 @@ void IntrerpretareComanda(string comanda)
 					number = true;
 				}
 
-				vector<Celula*> celule = d.getAtByName(tableName)->getCelule();
+				vector<Celula*> celule = Database::get().getAtByName(tableName)->getCelule();
 				size_t len = celule.size(), index;
 				for (size_t i = 0; i < len; ++i)
 				{
@@ -556,9 +568,8 @@ void IntrerpretareComanda(string comanda)
 						break;
 					}
 				}
-				//vector<string> filters;
 
-				d.getAtByName(tableName)->printRecords(values, Filter(celula, val), index);
+				Database::get().getAtByName(tableName)->printRecords(values, Filter(celula, val), index);
 			}
 		}
 		else
@@ -566,25 +577,25 @@ void IntrerpretareComanda(string comanda)
 			size_t valuesSize = values.size();
 			for (size_t i = 0; i < valuesSize; ++i)
 			{
-				if (!d.getAtByName(tableName)->getCelulaByName(values.at(i)))
+				if (!Database::get().getAtByName(tableName)->getCelulaByName(values.at(i)))
 				{
 					throw Exception("Eroare in sintaxa comenzii SELECT! -> nu exista coloanele selectate");
 				}
 			}
 			if (!whereToken)
 			{
-				d.getAtByName(tableName)->printRecords(values);
+				Database::get().getAtByName(tableName)->printRecords(values);
 			}
 			else
 			{
-				if (!d.getAtByName(tableName)->getCelulaByName(celula))
+				if (!Database::get().getAtByName(tableName)->getCelulaByName(celula))
 				{
 					string tmp = "Eroare in sintaxa comenzii SELECT! -> nu exista celula " + celula;
 					throw Exception(tmp.c_str());
 				}
 
 				bool number = false;
-				TipCelula tipCelulaCautata = d.getAtByName(tableName)->getTipCelulaByName(celula);
+				TipCelula tipCelulaCautata = Database::get().getAtByName(tableName)->getTipCelulaByName(celula);
 				if (tipCelulaCautata == TipCelula::NUMBER)
 				{
 					if (!is_number(val))
@@ -594,7 +605,7 @@ void IntrerpretareComanda(string comanda)
 					number = true;
 				}
 
-				vector<Celula*> celule = d.getAtByName(tableName)->getCelule();
+				vector<Celula*> celule = Database::get().getAtByName(tableName)->getCelule();
 				size_t len = celule.size(), index;
 				for (size_t i = 0; i < len; ++i)
 				{
@@ -605,9 +616,10 @@ void IntrerpretareComanda(string comanda)
 					}
 				}
 
-				d.getAtByName(tableName)->printRecords(values, Filter(celula, val), index);
+				Database::get().getAtByName(tableName)->printRecords(values, Filter(celula, val), index);
 			}
 		}
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda select a fost executata: " + comanda);
 	}
 	else if (!token.compare("create"))
 	{
@@ -629,47 +641,41 @@ void IntrerpretareComanda(string comanda)
 				}
 				case 1:
 				{
-					tableName = token;
+					tableName = toLowerCase(token);
 					break;
 				}
 				default: break;
 			}
-			string temp = comanda;
-			temp = toLowerCase(temp);
-			if (!temp.substr(0, 7).compare("values("))break;
+			if (i == 1)break;
 			++i;
 
 		}
 
-		if (i != 4 && i != 1)
+		if (i != 1)
 		{
 			throw Exception("Eroare in sintaxa comenzii CREATE!");
 		}
 
-		if (i == 4)
+		if (Database::get().getAtByName(tableName))
 		{
-			size_t len = d.getId();
-			for (size_t i = 0; i < len; ++i)
-			{
-				if (!strcmp(d.getAt(i)->getNumeTabela(), tableName.c_str()))
-				{
-					return;
-				}
-			}
+			throw Exception(string("Tabelul " + tableName + " deja exista!").c_str());
 		}
 
 		token = comanda;
 		token = toLowerCase(token);
-		if (token.substr(0, 7).compare("values("))
+		ltrim(token);
+
+		if (token.at(0) != '(')
 		{
-			throw Exception("Eroare in sintaxa comenzii CREATE! -> values");
+			throw Exception("Eroare in sintaxa comenzii CREATE! -> paranteza");
 		}
+
 		if (token.at(token.length() - 1) != ')')
 		{
 			throw Exception("Eroare in sintaxa comenzii CREATE! -> paranteza");
 		}
 
-		token = token.substr(7, token.length() - 1);
+		token = token.substr(1, token.length() - 1);
 		token = token.substr(0, token.length() - 1);
 
 		if (token.length() == 0)
@@ -677,6 +683,7 @@ void IntrerpretareComanda(string comanda)
 			throw Exception("Eroare in sintaxa comenzii CREATE! -> valori nule");
 		}
 
+		string scheme = token;
 		string delimiter2 = ",";
 
 		vector<Celula*> values;
@@ -693,10 +700,76 @@ void IntrerpretareComanda(string comanda)
 		}
 		values.push_back(new Celula(token.substr(0, token.find(" ")), token.substr(token.find(" ") + 1, token.length() - 1)));
 
-		d.add(new Tabela(tableName.c_str(), d.getId(), values));
+		Database::get().add(new Tabela(tableName.c_str(), Database::get().getId(), values), scheme);
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda create a fost executata: " + comanda);
 	}
 	else
 	{
+		DatabaseReport::log("Method IntrerpretareComanda(string comanda)", "Comanda curenta nu exista: " + comanda);
 		throw Exception("Comanda inexistenta!");
 	}
+}
+
+void Database::add(Tabela *t, string scheme)
+{
+	v.push_back(t);
+
+	cout << "Tabelul " << t->getNumeTabela() << "(#" << nextIdTabela++ << ") a fost creat. Structura:" << endl;
+
+	size_t len = t->getCeluleSize();
+	vector<Celula*> celule = t->getCelule();
+	for (size_t i = 0; i < len; ++i)
+	{
+		cout << celule.at(i)->getNume() << " -> " << celule.at(i)->getTipCelulaAsString();
+		if (i != len - 1) cout << " | ";
+	}
+
+	cout << endl;
+	FileManager::createSchema(t->getNumeTabela(), scheme);
+	DatabaseReport::log("Method add(Tabela *t, string scheme)", "O noua tabela a fost adaugata: " + string(t->getNumeTabela()));
+}
+
+Tabela* Database::getAt(size_t index)
+{
+	return v.at(index);
+}
+
+Tabela* Database::getAtByName(string name)
+{
+	size_t len = v.size();
+	for (size_t i = 0; i < len; ++i)
+	{
+		if (!name.compare(v.at(i)->getNumeTabela())) return v.at(i);
+	}
+	return nullptr;
+}
+
+void Database::deleteAtByName(string name)
+{
+	size_t len = v.size();
+
+	for (size_t i = 0; i < len; ++i)
+	{
+		if (!name.compare(v.at(i)->getNumeTabela()))
+		{
+			v.erase(v.begin() + i);
+			break;
+		}
+	}
+
+	FileManager::serializeTable(name, "");
+	FileManager::deleteSchema(name);
+	cout << "Tabelul " << name << " a fost sters!" << endl;
+	DatabaseReport::log("Method deleteAtByName(string name)", "Tabela " + name + " a fost stearsa.");
+}
+
+int Database::getId()
+{
+	return nextIdTabela;
+}
+
+void Database::deleteAt(size_t index)
+{
+	v.erase(v.begin() + index);
+	DatabaseReport::log("Method deleteAtByName(string name)", "Tabela " + string(v.at(index)->getNumeTabela()) + " a fost stearsa.");
 }
