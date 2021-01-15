@@ -198,6 +198,6 @@ void FileManager::log(string file, string output)
 {
 	string path = getCurrentPath() + "\\" + file;
 	ofstream fileHandle(file, ios::app);
-	string buffer = "[" + getCurrentDateAndTime() + "] " + output;
+	string buffer = "[" + getCurrentDateAndTime() + "] " + output + "\n";
 	fileHandle << buffer;
 }

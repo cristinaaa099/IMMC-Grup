@@ -19,9 +19,10 @@ string getCurrentDateAndTime()
 {
 	auto now = std::chrono::system_clock::now();
 
-	time_t end_time =chrono::system_clock::to_time_t(now);
+	time_t end_time = chrono::system_clock::to_time_t(now);
 
-	return std::ctime(&end_time);
+	string output = string(ctime(&end_time));
+	return output.substr(0, output.size() - 1);
 }
 
 bool is_number(const std::string& s)
